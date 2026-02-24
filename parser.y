@@ -6,6 +6,7 @@
 extern int yylex();
 extern int yylineno;
 extern char *yytext;
+int had_error = 0;
 
 void yyerror(const char *s);
 %}
@@ -29,7 +30,51 @@ void yyerror(const char *s);
 %%
 
 program
-        : stmt_list
+        : include_list_opt external_list
+        ;
+
+external_list
+        : external_list external
+        | /* empty */
+        ;
+
+external
+        : statement
+        | main_function
+        ;
+
+include_list_opt
+        : /* empty */
+        | include_list
+        ;
+
+include_list
+        : include_list include_stmt
+        | include_stmt
+        ;
+
+include_stmt
+        : INCLUDE HEADER
+        | INCLUDE STRLITERAL
+        ;
+
+main_function
+        : type MAIN '(' parameter_list_opt ')' block
+        ;
+
+parameter_list_opt
+        : /* empty */
+        | parameter_list
+        ;
+
+parameter_list
+        : parameter_list ',' parameter
+        | parameter
+        ;
+
+parameter
+        : type ID
+        | type
         ;
 
 stmt_list
@@ -48,6 +93,7 @@ statement
         | switch_stmt
         | BREAK ';'
         | block
+        | error ';' { yyerrok; }
         ;
 
 block
@@ -203,16 +249,15 @@ primary_expression
 
 void yyerror(const char *s)
 {
+    had_error = 1;
     fprintf(stderr,
-            "Syntax error at line %d, token '%s': %s\n",
-            yylineno,
-            yytext,
-            s);
+            "Error: %s, line number: %d,token: %s\n",
+            s, yylineno, yytext);
 }
 
 int main()
 {
-    if (yyparse() == 0)
-        printf("Syntax valid.\n");
+    if (yyparse() == 0 && !had_error)
+        printf("Valid syntax\n");
     return 0;
 }
